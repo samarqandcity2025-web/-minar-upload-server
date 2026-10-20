@@ -1,11 +1,9 @@
 {
   "name": "minar-upload-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Registration + login + Telegram file forwarding backend for Minar",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "test": "node --test test.cjs"
+  "description": "Vercel functions for Minar: Blob upload token + Telegram forwarding",
+  "dependencies": {
+    "@vercel/blob": "^0.27.0"
   }
 }

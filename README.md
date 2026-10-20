@@ -1,85 +1,52 @@
-# Minar upload server
+# Minar upload server (Vercel)
 
-Small zero-dependency Node server for the Minar app. It handles:
+Serverless functions that let the Minar app forward an opened CAD file to the
+company Telegram — built for Vercel's free Hobby plan.
 
-- `POST /api/register` — one-time account creation (requires `consent: true`)
-- `POST /api/login` — returns a signed session token
-- `POST /api/upload` — receives an uploaded file (base64) with the user's login
-  and the time, and forwards it to a Telegram chat as a document
-- `GET /api/health` — quick status check
-
-The Telegram bot token lives **only on the server** (environment variables),
-never in the browser app.
-
-## 1. Create the Telegram bot
-
-1. In Telegram open **@BotFather** → `/newbot` → follow the prompts → copy the
-   **bot token**.
-2. Start a chat with your new bot and send it any message (so it can message you).
-3. Open `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy
-   the `chat.id` value. That is your `TELEGRAM_CHAT_ID`.
-   (For a group/channel, add the bot there and read the negative chat id.)
-
-## 2. Environment variables
-
-Copy `.env.example` → `.env` (local) or set these in your host dashboard:
-
-| Variable | Required | Meaning |
-|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | yes | bot token from BotFather |
-| `TELEGRAM_CHAT_ID` | yes | chat that receives the files |
-| `MINAR_SECRET` | yes | long random string, signs login tokens |
-| `PORT` | no | default 8787 |
-| `MINAR_DATA_DIR` | no | where `users.json` is stored (default `./data`) |
-| `MINAR_MAX_BYTES` | no | max request body, default 60 MB |
-
-## 3. Run locally
+Because Vercel functions cap the request body at ~4.5 MB, large CAD files go
+**straight from the browser to Vercel Blob**, and the function then asks Telegram
+to fetch that file (Telegram URL mode, up to 20 MB) and posts it to the chat,
+with the user's login and the time. The blob is deleted right after.
 
 ```
-cd minar-upload-server
-# set the env vars first, then:
-npm start
+browser --(big file)--> Vercel Blob
+browser --(blobUrl + login)--> /api/notify --> Telegram sendDocument(url) --> chat
 ```
 
-Check: open `http://localhost:8787/api/health`.
+Accounts (register once, then login) are handled **inside the app on each
+computer** — no database needed here.
 
-## 4. Deploy
+## Functions
 
-**Recommended: Railway or Render** (they run a normal long-lived Node server, so
-large CAD files pass through).
+- `POST /api/blob-upload` — issues a short-lived Blob upload token (checks `MINAR_APP_KEY`)
+- `POST /api/notify` — `{appKey, login, name, time, blobUrl}` → Telegram, then deletes the blob
+- `GET /api/health` — status: are the env vars present?
 
-Railway: New Project → Deploy from repo (or `railway up`) → set the env vars →
-start command `node server.js`. Add a persistent **Volume** mounted at a folder
-and point `MINAR_DATA_DIR` there, so `users.json` survives restarts.
+## Deploy
 
-Render: New → Web Service → Build command empty, Start command `node server.js`
-→ add env vars → add a Disk for `MINAR_DATA_DIR`.
+1. Push this folder to GitHub (already done for this project).
+2. On **vercel.com** → **Add New… → Project** → import the GitHub repo.
+3. **Storage → Create → Blob** store, and connect it to this project. Vercel then
+   adds `BLOB_READ_WRITE_TOKEN` automatically.
+4. **Settings → Environment Variables** — add:
+   | Name | Value |
+   |---|---|
+   | `TELEGRAM_BOT_TOKEN` | bot token from BotFather |
+   | `TELEGRAM_CHAT_ID` | `6156628475` |
+   | `MINAR_APP_KEY` | the same long random string set in `minar-app/minar-upload.js` |
+5. **Redeploy** so the env vars take effect.
+6. Check: open `https://<your-app>.vercel.app/api/health` →
+   `{"ok":true,"telegram":true,"appKey":true,"blob":true}`.
 
-### About Vercel / Netlify
+## Point the app at the server
 
-Their serverless functions cap the **request body at about 4.5–6 MB**, and the
-filesystem is not persistent (so `users.json` would be lost). Minar CAD files
-are often 12 MB or more, so the plain `/api/upload` here will fail there.
+In Minar's login screen → **Server address** → paste `https://<your-app>.vercel.app`.
+The `MINAR_APP_KEY` is set in `minar-app/minar-upload.js` (`APP_KEY`).
 
-If you must use Vercel/Netlify, two changes are needed (ask and I will add them):
+## Limits
 
-1. Store users in a hosted database (e.g. Vercel KV / Postgres) instead of a file.
-2. Upload large files to blob storage (e.g. Vercel Blob) from the browser, then
-   have the function pass that URL to Telegram's `sendDocument` (URL mode, up to
-   20 MB). This avoids the body-size cap.
-
-## 5. Point the app at the server
-
-Open Minar → on the login screen expand **“Server address”** and paste your
-deployed URL (e.g. `https://minar-upload.up.railway.app`). It is remembered in
-that browser. You can also hard-code it in `minar-app/minar-upload.js`
-(`DEFAULT_SERVER_URL`).
-
-## Notes / limits
-
-- `users.json` is a simple store; fine for a company team. For many users or
-  serverless hosting, switch to a real database.
-- Passwords are hashed with scrypt; tokens are HMAC-signed and expire in 180 days.
-- The upload endpoint only runs after a successful login (valid token).
-- CORS is open (`*`) so the local `index.html` / EXE can reach it. Restrict the
-  origin if you want to lock it to specific deployments.
+- Telegram URL mode: file must be ≤ 20 MB.
+- Vercel Blob free tier covers storage + bandwidth for moderate team use; each
+  file costs ~2× its size in bandwidth (upload + Telegram fetch).
+- Accounts live per computer (matches “saved on this computer”); the same person
+  registers again on another machine.

@@ -1,0 +1,11 @@
+{
+  "name": "minar-upload-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Registration + login + Telegram file forwarding backend for Minar",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test.cjs"
+  }
+}

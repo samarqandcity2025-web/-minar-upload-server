@@ -18,6 +18,7 @@ computer** — no database needed here.
 
 ## Functions
 
+
 - `POST /api/blob-upload` — issues a short-lived Blob upload token (checks `MINAR_APP_KEY`)
 - `POST /api/notify` — `{appKey, login, name, time, blobUrl}` → Telegram, then deletes the blob
 - `GET /api/health` — status: are the env vars present?

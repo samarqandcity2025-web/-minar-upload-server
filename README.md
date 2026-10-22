@@ -33,11 +33,28 @@ computer** — no database needed here.
    | Name | Value |
    |---|---|
    | `TELEGRAM_BOT_TOKEN` | bot token from BotFather |
-   | `TELEGRAM_CHAT_ID` | `6156628475` |
+   | `TELEGRAM_CHAT_ID` | `6156628475` (several: `6156628475,123456789`) |
    | `MINAR_APP_KEY` | the same long random string set in `minar-app/minar-upload.js` |
 5. **Redeploy** so the env vars take effect.
 6. Check: open `https://<your-app>.vercel.app/api/health` →
    `{"ok":true,"telegram":true,"appKey":true,"blob":true}`.
+
+## Bot menu: add more recipients
+
+Files go to every id in `TELEGRAM_CHAT_ID` (fixed, "asosiy") **plus** everyone
+the admin adds through the bot. The admin is `TELEGRAM_ADMIN_ID` (optional;
+default = the first id in `TELEGRAM_CHAT_ID`).
+
+1. After deploying, open once in a browser:
+   `https://<your-app>.vercel.app/api/telegram-setup?key=<MINAR_APP_KEY>` → `"ok": true`.
+2. In the bot, the admin presses **Start** → menu **➕ Yangi foydalanuvchi** / **👥 Ro'yxat**.
+3. A new person presses **Start** in the bot → the admin gets **✅ Qo'shish / ❌ Rad etish**.
+   Or the admin taps ➕ and sends the person's ID or @username.
+4. **👥 Ro'yxat** shows everyone; ❌ removes an added person.
+
+Telegram lets a bot write (and resolve @username) only to people who pressed
+Start in it, so new people always press Start first. The list is stored in
+Vercel Blob (`minar-bot/state-*.json`).
 
 ## Point the app at the server
 

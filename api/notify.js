@@ -1,11 +1,12 @@
 'use strict';
-// Vercel serverless function: receives {login, name, time, blobUrl} from the
+// Vercel serverless function: receives {login, profile, name, time, blobUrl} from the
 // browser (after the file is in Vercel Blob), downloads that file server-side
 // and uploads it to the company Telegram chat as a real document (multipart).
 // Then deletes the blob. Protected by the shared MINAR_APP_KEY. The bot token
 // lives only here, in env vars.
 const { del } = require('@vercel/blob');
 const { allChats } = require('../lib/bot-store');
+const { profileOf, cleanProfile } = require('../lib/account-store');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -31,9 +32,16 @@ module.exports = async (req, res) => {
   if (!BOT || !CHATS.length) { res.status(500).json({ ok: false, error: 'telegram-not-configured' }); return; }
 
   const when = b.time ? new Date(Number(b.time) || b.time) : new Date();
+  // Name, phone and e-mail from the registration: sent by the app, else looked up by login.
+  let p = cleanProfile(b.profile);
+  if (!p && b.login) { try { p = await profileOf(b.login); } catch { p = null; } }
+  p = p || {};
   const caption =
     '📂 Yangi fayl yuklandi\n' +
-    '👤 Login: ' + (b.login || '-') + '\n' +
+    '👤 Ism familiya: ' + ([p.firstName, p.lastName].filter(Boolean).join(' ') || '-') + '\n' +
+    '📞 Telefon: ' + (p.phone || '-') + '\n' +
+    '📧 Gmail: ' + (p.email || '-') + '\n' +
+    '🔑 Login: ' + (b.login || '-') + '\n' +
     '📄 Fayl: ' + b.name + '\n' +
     '🕒 Vaqt: ' + new Date(when.getTime() + 5 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' (Toshkent)';
 

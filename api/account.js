@@ -24,13 +24,14 @@ module.exports = async (req, res) => {
   const login = typeof b.login === 'string' ? b.login.trim() : '';
   const password = typeof b.password === 'string' ? b.password : '';
   if (!/^[A-Za-z0-9_.@-]{3,64}$/.test(login)) { res.status(400).json({ ok: false, error: 'bad-login' }); return; }
-  if (password.length < 6 || password.length > 256) { res.status(400).json({ ok: false, error: 'bad-password' }); return; }
+  if (b.action !== 'import' && (password.length < 6 || password.length > 256)) { res.status(400).json({ ok: false, error: 'bad-password' }); return; }
 
   try {
-    const out = b.action === 'register' ? await accounts.register(login, password, b.consentAt)
+    const out = b.action === 'import' ? await accounts.importVerifier(login, b.salt, b.verifier, b.consentAt)
+      : b.action === 'register' ? await accounts.register(login, password, b.consentAt)
       : b.action === 'login' ? await accounts.login(login, password)
       : { ok: false, error: 'bad-action' };
-    res.status(out.ok ? 200 : out.error === 'exists' ? 409 : out.error === 'bad-action' ? 400 : 401).json(out);
+    res.status(out.ok ? 200 : out.error === 'exists' ? 409 : out.error === 'bad-action' || out.error === 'bad-payload' ? 400 : 401).json(out);
   } catch (e) {
     res.status(500).json({ ok: false, error: 'server' });
   }

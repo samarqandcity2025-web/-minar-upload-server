@@ -152,10 +152,29 @@ async function userMessage(state, m, p) {
   }
 }
 
+// ✅ / ❌ under a Minar 2 registration request (api/minar2): the decision goes to the Minar 2 server (api/approve).
+const MINAR2_SERVER = () => String(process.env.MINAR2_SERVER_URL || 'https://minar2-server.vercel.app').replace(/\/+$/, '');
+async function onMinar2(q, allow, login) {
+  const by = person(q.from).name;
+  let out = null;
+  try {
+    const r = await fetch(MINAR2_SERVER() + '/api/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: process.env.MINAR2_LINK_KEY || '', login, allow, by }) });
+    out = await r.json().catch(() => null);
+  } catch {}
+  const result = !(out && out.ok) ? "❗ Minar 2 serveriga ulanib bo'lmadi, qayta bosing." + (out && out.error ? ' (' + out.error + ')' : '')
+    : allow ? '✅ Ruxsat berildi (' + by + ')' : '❌ Rad etildi (' + by + ')';
+  await tg('answerCallbackQuery', { callback_query_id: q.id, text: result.slice(0, 190) });
+  // A failed call keeps the buttons, so the admin can press again.
+  if (q.message && out && out.ok) await tg('editMessageText', { chat_id: q.message.chat.id, message_id: q.message.message_id, text: (q.message.text || ('Minar 2: ' + login)) + '\n\n' + result });
+}
+
 async function onCallback(q) {
   const admin = String(q.from.id);
   if (!isAdmin(admin)) { await tg('answerCallbackQuery', { callback_query_id: q.id, text: "Ruxsat yo'q" }); return; }
-  const [act, id] = String(q.data || '').split(':');
+  const data = String(q.data || '');
+  if (/^m2(ok|no):/.test(data)) { await onMinar2(q, data.startsWith('m2ok:'), data.slice(5)); return; }
+  const [act, id] = data.split(':');
   const state = await store.load();
   const p = findKnown(state, id) || { id: String(id), username: '', name: String(id) };
   let result;

@@ -161,7 +161,8 @@ async function onMinar2(q, allow, login) {
     const r = await fetch(MINAR2_SERVER() + '/api/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: process.env.MINAR2_LINK_KEY || '', login, allow, by }) });
     out = await r.json().catch(() => null);
-  } catch {}
+    console.log('minar2 approve', login, allow, r.status, out && (out.ok ? out.status : out.error));
+  } catch (e) { console.error('minar2 approve failed', login, e && e.message); }
   const result = !(out && out.ok) ? "❗ Minar 2 serveriga ulanib bo'lmadi, qayta bosing." + (out && out.error ? ' (' + out.error + ')' : '')
     : allow ? '✅ Ruxsat berildi (' + by + ')' : '❌ Rad etildi (' + by + ')';
   await tg('answerCallbackQuery', { callback_query_id: q.id, text: result.slice(0, 190) });
@@ -210,9 +211,10 @@ async function onMessage(m) {
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(200).json({ ok: true, webhook: 'telegram' }); return; }
-  if (req.headers['x-telegram-bot-api-secret-token'] !== store.webhookSecret()) { res.status(401).json({ ok: false }); return; }
+  if (req.headers['x-telegram-bot-api-secret-token'] !== store.webhookSecret()) { console.warn('telegram webhook: wrong secret'); res.status(401).json({ ok: false }); return; }
   let u = req.body;
   if (typeof u === 'string') { try { u = JSON.parse(u); } catch { u = {}; } }
+  if (u && u.callback_query) console.log('telegram callback', String(u.callback_query.data || '').slice(0, 70), 'admin:', isAdmin(String(u.callback_query.from && u.callback_query.from.id)));
   try {
     if (u && u.callback_query) await onCallback(u.callback_query);
     else if (u && u.message) await onMessage(u.message);

@@ -1,0 +1,4 @@
+{
+  "rewrites": [{ "source": "/3d/:key", "destination": "/api/view3d?k=:key" }],
+  "functions": { "api/share3d.js": { "maxDuration": 60 }, "api/view3d.js": { "maxDuration": 30 } }
+}

@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
         return {
           allowedContentTypes: [
             'application/octet-stream', 'application/pdf',
-            'image/vnd.dwg', 'application/acad', 'application/dxf', 'text/plain',
+            'image/vnd.dwg', 'application/acad', 'application/dxf', 'text/plain', 'application/json',
           ],
           maximumSizeInBytes: 25 * 1024 * 1024,
           tokenPayload: JSON.stringify({ login: p.login || '' }),

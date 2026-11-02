@@ -28,6 +28,7 @@ module.exports = async (req, res) => {
           allowedContentTypes: [
             'application/octet-stream', 'application/pdf',
             'image/vnd.dwg', 'application/acad', 'application/dxf', 'text/plain', 'application/json',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           ],
           maximumSizeInBytes: 25 * 1024 * 1024,
           tokenPayload: JSON.stringify({ login: p.login || '' }),

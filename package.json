@@ -5,5 +5,8 @@
   "description": "Vercel functions for Minar: Blob upload token + Telegram forwarding",
   "dependencies": {
     "@vercel/blob": "^0.27.0"
+  },
+  "scripts": {
+    "test": "node --test test/doc.test.js"
   }
 }

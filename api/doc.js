@@ -55,15 +55,20 @@ module.exports = async (req, res) => {
       if (!r.ok) { res.status(502).json({ ok: false, error: 'blob-fetch-failed-' + r.status }); return; }
       bytes = Buffer.from(await r.arrayBuffer());
     }
-    const rowsOnly = app === 'minar-2' && (!bytes || !bytes.length) && Array.isArray(b.rows) && b.rows.length;
-    if (!rowsOnly && (!bytes || !bytes.length)) { res.status(400).json({ ok: false, error: 'bad-payload' }); return; }
-    if (bytes && bytes.length > MAX) { res.status(413).json({ ok: false, error: 'too-big' }); return; }
+    // Minar 2 (user, 2 Nov 2026: «the saved files must not come to the bot — only new users' requests»): its page shows only
+    // file, date, who, size and SHA-256, so nothing is sent to Telegram and no table is kept; a file an older program still sends
+    // is only measured, then dropped. The app sends size and SHA-256 itself.
+    const m2 = app === 'minar-2', has = !!(bytes && bytes.length);
+    if (!m2 && !has) { res.status(400).json({ ok: false, error: 'bad-payload' }); return; }
+    if (has && bytes.length > MAX) { res.status(413).json({ ok: false, error: 'too-big' }); return; }
+    const size = has ? bytes.length : Number.isInteger(b.size) && b.size > 0 && b.size <= MAX ? b.size : 0;
+    const sha256 = has ? crypto.createHash('sha256').update(bytes).digest('hex') : /^[0-9a-f]{64}$/.test(String(b.sha256 || '')) ? String(b.sha256) : '';
     const name = text(b.name, 200).replace(/[\\/:*?"<>|]+/g, '_') || ('minar.' + b.kind);
     const p = cleanProfile(b.profile) || {};
     const who = [p.firstName, p.lastName].filter(Boolean).join(' ');
     const caption = KINDS[b.kind] + ' QR hujjat / документ' + (app === 'minar-2' ? ' · Minar 2' : '') + '\n📄 ' + name + '\n🔑 Login: ' + (b.login || '-') + (who ? '\n👤 ' + who : '');
     let parts;
-    if (rowsOnly) parts = [];
+    if (m2) parts = [];
     else if (bytes.length <= PART) parts = [await store.put(bytes, name, caption)];
     else {
       const files = [];
@@ -73,9 +78,9 @@ module.exports = async (req, res) => {
     }
     const exportedAt = isNaN(Date.parse(b.exportedAt)) ? new Date().toISOString() : new Date(b.exportedAt).toISOString();
     const manifest = {
-      v: 1, app, kind: b.kind, name, size: bytes ? bytes.length : 0, sha256: bytes ? crypto.createHash('sha256').update(bytes).digest('hex') : '',
-      cols: Array.isArray(b.cols) ? b.cols.slice(0, 8).map((c) => text(c, 60)) : null,
-      exportedAt, stored: new Date().toISOString(), who, section: text(b.section, 200), rows: cleanRows(b.rows), parts,
+      v: 1, app, kind: b.kind, name, size, sha256,
+      cols: !m2 && Array.isArray(b.cols) ? b.cols.slice(0, 8).map((c) => text(c, 60)) : null,
+      exportedAt, stored: new Date().toISOString(), who, section: m2 ? '' : text(b.section, 200), rows: m2 ? null : cleanRows(b.rows), parts,
     };
     // Two uploads of one token at the same moment: the one already saved stays.
     if (await docs.find(b.token)) { res.status(200).json({ ok: true, url, existing: true }); return; }

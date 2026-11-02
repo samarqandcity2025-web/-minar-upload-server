@@ -131,11 +131,23 @@ test('doc: a Minar 2 offer is stored with its own key, columns and rows; the pag
   assert.match(p.body, /Haqiqiy hujjat/);
   assert.match(p.body, /MTT-624 от 02\.11\.2026\.pdf/);
   assert.doesNotMatch(p.body, /Гайка D90|Цена с учётом НДС|id="dl"/);
+  const tgBefore = fs.readdirSync(mock).length;
   const withFile = token(), bytes = Buffer.from('PK fake xlsx ' + 'y'.repeat(300));
   const f = await call(doc, { method: 'POST', body: { appKey: 'm2-key', app: 'minar-2', token: withFile, sig: sig2(withFile), kind: 'xlsx', name: 'MTT-624.xlsx', cols, rows, payload: bytes.toString('base64') } });
   assert.strictEqual(f.code, 200);
   const pf = await call(view, { query: { k: key(f.body.url) } });
   assert.match(pf.body, /Hajmi · Размер/);
+  assert.equal(fs.readdirSync(mock).length, tgBefore, 'Minar 2 files never go to Telegram (user, 2 Nov 2026)');
+  const mf = JSON.parse([...blobs.entries()].find(([k]) => k.includes(withFile))[1].body);
+  assert.equal(mf.rows, null, 'no table kept for Minar 2');
+  assert.equal(mf.size, bytes.length);
+  assert.equal(mf.sha256, crypto.createHash('sha256').update(bytes).digest('hex'));
+  const meta = token(), sha = crypto.createHash('sha256').update('x').digest('hex');
+  const m = await call(doc, { method: 'POST', body: { appKey: 'm2-key', app: 'minar-2', token: meta, sig: sig2(meta), kind: 'pdf', name: 'MTT-1.pdf', size: 1234, sha256: sha } });
+  assert.strictEqual(m.code, 200, JSON.stringify(m.body));
+  const pm = await call(view, { query: { k: key(m.body.url) } });
+  assert.match(pm.body, /2 KB|1 KB/);
+  assert.match(pm.body, new RegExp(sha.slice(0, 16)));
   assert.doesNotMatch(pf.body, /id="dl"|<table/);
   // A Minar 1 link still works next to Minar 2's.
   assert.strictEqual(docs.valid(t, sig2(t)), true);

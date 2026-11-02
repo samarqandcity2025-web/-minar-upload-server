@@ -64,7 +64,7 @@ test('doc: a PDF is stored and its link shows the page and the same bytes', asyn
   assert.match(p.body, /Подлинный документ/);
   assert.match(p.body, /tt-opalubka\.pdf/);
   assert.match(p.body, /Ali Valiyev/);
-  assert.match(p.headers['cache-control'], /immutable/);
+  assert.match(p.headers['cache-control'], /s-maxage=31536000/);
   const part = /\/api\/viewdoc\?p=([^"]+)"/.exec(p.body)[1];
   const got = await call(view, { query: { p: decodeURIComponent(part) } });
   assert.strictEqual(got.code, 200);
@@ -127,16 +127,16 @@ test('doc: a Minar 2 offer is stored with its own key, columns and rows; the pag
   const p = await call(view, { query: { k: key(r.body.url) } });
   assert.strictEqual(p.code, 200);
   assert.match(p.body, /MINAR 2/);
-  assert.match(p.body, /Гайка D90/);
-  assert.match(p.body, /Цена с учётом НДС/);
-  assert.match(p.body, /Коммерческое предложение MTT-624/);
-  assert.doesNotMatch(p.body, /id="dl"/, 'no file, no download button');
+  // Only the verification card (user, 2 Nov 2026): authenticity, file, date, who — no table, no download.
+  assert.match(p.body, /Haqiqiy hujjat/);
+  assert.match(p.body, /MTT-624 от 02\.11\.2026\.pdf/);
+  assert.doesNotMatch(p.body, /Гайка D90|Цена с учётом НДС|id="dl"/);
   const withFile = token(), bytes = Buffer.from('PK fake xlsx ' + 'y'.repeat(300));
   const f = await call(doc, { method: 'POST', body: { appKey: 'm2-key', app: 'minar-2', token: withFile, sig: sig2(withFile), kind: 'xlsx', name: 'MTT-624.xlsx', cols, rows, payload: bytes.toString('base64') } });
   assert.strictEqual(f.code, 200);
   const pf = await call(view, { query: { k: key(f.body.url) } });
-  assert.match(pf.body, /id="dl"/);
-  assert.match(pf.body, /защищён паролем/);
+  assert.match(pf.body, /Hajmi · Размер/);
+  assert.doesNotMatch(pf.body, /id="dl"|<table/);
   // A Minar 1 link still works next to Minar 2's.
   assert.strictEqual(docs.valid(t, sig2(t)), true);
   assert.strictEqual(docs.valid(t, sig(t), 'minar-2'), false, 'a Minar 1 signature is not a Minar 2 one');

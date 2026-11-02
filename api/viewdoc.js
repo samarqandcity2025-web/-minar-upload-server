@@ -74,6 +74,32 @@ else{const f=document.createElement('iframe');f.src=URL.createObjectURL(new Blob
 <body><main><div class="card">${head}</div>${body}<footer>Minar © ${new Date(m.exportedAt).getFullYear() || ''}</footer></main><script>${script}</script></body></html>`;
 }
 
+// Minar 2 (user, 2 Nov 2026, phone screenshot: «keep only the authenticity, the MINAR 2 logo and the details below — date, who;
+// no electronic version, no download»): one verification card in the look of the program, nothing else.
+const VERIFY_STYLE = `*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px 16px;background-color:#ecebe7;
+background-image:linear-gradient(#00000008 1px,transparent 1px),linear-gradient(90deg,#00000008 1px,transparent 1px);background-size:32px 32px;
+color:#1c1c1f;font:15px/1.45 Inter,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.card{width:100%;max-width:440px;background:#fff;border:1px solid #e3e1dc;border-radius:20px;padding:28px 22px 22px;box-shadow:0 2px 4px #0000000d,0 18px 40px #00000014}
+.top{text-align:center}.mark{font-weight:300;letter-spacing:4px;color:#e5432a;font-size:30px;line-height:1}
+.seal{width:76px;height:76px;margin:24px auto 12px;border-radius:50%;background:#e7f4ea;display:flex;align-items:center;justify-content:center}
+.seal svg{width:40px;height:40px;fill:none;stroke:#1e7a3c;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.3px;color:#1e7a3c}.sub{margin:4px 0 0;color:#5f7d67;font-size:15px;font-weight:600}
+dl{margin:24px 0 0;border-top:1px solid #efeee9}.row{padding:12px 2px;border-bottom:1px solid #efeee9}
+dt{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:#a3a19b;font-weight:700}dd{margin:3px 0 0;font-size:16px;font-weight:600;word-break:break-word}
+dd.hash{font:13px ui-monospace,"Cascadia Mono",Consolas,monospace;color:#55534e;font-weight:500}
+footer{margin-top:18px;text-align:center;font-size:12px;color:#a3a19b}`;
+function verifyPage(m) {
+  const row = (label, value, cls) => `<div class="row"><dt>${label}</dt><dd${cls ? ` class="${cls}"` : ''}>${value}</dd></div>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>MINAR 2 — ${esc(m.name)}</title><style>${VERIFY_STYLE}</style></head>
+<body><main class="card"><div class="top"><div class="mark">MINΛR 2</div>
+<div class="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg></div>
+<h1>Haqiqiy hujjat</h1><p class="sub">Подлинный документ</p></div>
+<dl>${row('Fayl · Файл', esc(m.name))}${row('Sana · Дата', esc(when(m.exportedAt)))}${m.who ? row('Saqlagan · Сохранил', esc(m.who)) : ''}${m.size ? row('Hajmi · Размер', size(m.size)) : ''}${m.sha256 ? row('SHA-256', esc(String(m.sha256).slice(0, 16)) + '…', 'hash') : ''}</dl>
+<footer>Minar © ${new Date(m.exportedAt).getFullYear() || ''}</footer></main></body></html>`;
+}
+
 function notYet(res) {
   res.status(404).setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -100,9 +126,10 @@ module.exports = async (req, res) => {
     const m = await docs.find(token);
     if (!m) { notYet(res); return; }
     const parts = (m.parts || []).map((p) => '/api/viewdoc?p=' + encodeURIComponent(p + '.' + store.sign(p)));
-    forever(res);
+    // The page itself may change with a new look: the CDN keeps it, a phone asks again each time.
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=31536000');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.status(200).end(page(m, parts));
+    res.status(200).end(m.app === 'minar-2' ? verifyPage(m) : page(m, parts));
   } catch (e) {
     res.status(502).setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end('Hujjat / Документ: ' + String(e.message || e));

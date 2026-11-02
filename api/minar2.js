@@ -2,7 +2,8 @@
 // Minar 2 registration requests (user, 27 Oct 2026: «add Minar 2 to the Minar Telegram: we see who registers, he asks for
 // permission and we allow him»). Called only by the Minar 2 server (minar2-server lib/telegram.js) with env MINAR2_LINK_KEY.
 // POST {key, action:'request', login, profile:{firstName,lastName,phone,email}, createdAt}: every bot admin gets the request
-// with ✅ / ❌ buttons; api/telegram.js handles them and tells the Minar 2 server (api/approve).
+// with ✅ / ❌ buttons; api/telegram.js handles them and tells the Minar 2 server (api/approve). Assistant admins appointed
+// in the bot get them too (user, 2 Nov 2026: «he is an admin, let him allow Minar 2 users as well»).
 const crypto = require('crypto');
 const store = require('../lib/bot-store');
 
@@ -34,7 +35,9 @@ module.exports = async (req, res) => {
   const login = s(b.login, 64), text = requestText(b);
   const buttons = { inline_keyboard: [[{ text: '✅ Ruxsat berish', callback_data: 'm2ok:' + login }, { text: '❌ Rad etish', callback_data: 'm2no:' + login }]] };
   let sent = 0;
-  for (const chat of store.admins()) {
+  let helpers = [];
+  try { helpers = ((await store.load()).helpers || []).map((h) => String(h.id)); } catch {}
+  for (const chat of [...new Set([...store.admins(), ...helpers])]) {
     try {
       const r = await fetch('https://api.telegram.org/bot' + process.env.TELEGRAM_BOT_TOKEN + '/sendMessage', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: chat, text, reply_markup: buttons }) });

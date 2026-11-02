@@ -223,6 +223,8 @@ async function onMinar2(q, allow, login) {
   await tg('answerCallbackQuery', { callback_query_id: q.id, text: result.slice(0, 190) });
   // A failed call keeps the buttons, so the admin can press again.
   if (q.message && out && out.ok) await tg('editMessageText', { chat_id: q.message.chat.id, message_id: q.message.message_id, text: (q.message.text || ('Minar 2: ' + login)) + '\n\n' + result });
+  // the owner is told what an assistant admin decided
+  if (out && out.ok && !isOwner(q.from.id)) for (const o of store.admins()) await send(o, 'ℹ️ Minar 2, login ' + login + ': ' + result).catch(() => {});
 }
 
 async function onCallback(q) {
@@ -230,8 +232,8 @@ async function onCallback(q) {
   const state = await store.load();
   const data = String(q.data || '');
   const [act, id] = data.split(':');
-  // assistant admins: approve / reject requests only; removing people, admins and Minar 2 decisions stay with the owner
-  const allowed = isOwner(admin) || (isHelper(state, admin) && (act === 'add' || act === 'rej'));
+  // assistant admins: approve / reject requests (bot and Minar 2 registrations); removing people and admins stay with the owner
+  const allowed = isOwner(admin) || (isHelper(state, admin) && ['add', 'rej', 'm2ok', 'm2no'].includes(act));
   if (!allowed) { await tg('answerCallbackQuery', { callback_query_id: q.id, text: "Ruxsat yo'q" }); return; }
   if (/^m2(ok|no):/.test(data)) { await onMinar2(q, data.startsWith('m2ok:'), data.slice(5)); return; }
   const p = findKnown(state, id) || { id: String(id), username: '', name: String(id) };

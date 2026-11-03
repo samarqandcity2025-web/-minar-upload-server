@@ -9,6 +9,7 @@
 // Start in it, so new people must press Start first.
 // Register the webhook once with /api/telegram-setup?key=MINAR_APP_KEY.
 const store = require('../lib/bot-store');
+const phone = require('../lib/phone-code');
 
 const BTN_ADD = '➕ Yangi foydalanuvchi';
 const BTN_LIST = "👥 Ro'yxat";
@@ -267,8 +268,38 @@ async function onCallback(q) {
   if (q.message) await tg('editMessageText', { chat_id: q.message.chat.id, message_id: q.message.message_id, text: result });
 }
 
+// Phone check for a new Minar registration (user, 2 Nov 2026; lib/phone-code). The app opens t.me/<bot>?start=verify;
+// the bot asks for the contact with Telegram's own «share phone» button and answers with the 6-digit code for that
+// number. This path never touches the file-recipient list: no request goes to the admins, nothing is stored.
+const BTN_PHONE = '📱 Raqamni ulashish / Поделиться номером';
+async function phoneMessage(m) {
+  const chat = String(m.chat.id);
+  if (m.contact) {
+    if (String(m.contact.user_id || '') !== String(m.from.id)) {
+      await send(chat, "❗ Faqat o'zingizning raqamingizni pastdagi tugma orqali yuboring.\n❗ Отправьте только свой номер кнопкой ниже.");
+      return true;
+    }
+    const code = phone.codeFor(m.contact.phone_number);
+    if (!code) { await send(chat, "❗ Kod yaratib bo'lmadi, birozdan keyin qayta urinib ko'ring.\n❗ Не удалось создать код, попробуйте позже."); return true; }
+    const shown = '+' + phone.normalize(m.contact.phone_number);
+    await send(chat, '🔐 Minar tasdiqlash kodi / код подтверждения:\n\n' + code + '\n\n' + shown +
+      " raqami uchun. Kodni Minar dasturiga yozing, 10 daqiqa amal qiladi. Kodni hech kimga bermang.\n" +
+      'Для номера ' + shown + '. Введите код в программе Minar, он действует 10 минут. Никому не сообщайте код.',
+      { reply_markup: { remove_keyboard: true } });
+    return true;
+  }
+  if (/^\/start\s+verify\b/.test(m.text || '')) {
+    await send(chat, "Minar: telefon raqamingizni tasdiqlash uchun pastdagi «📱 Raqamni ulashish» tugmasini bosing.\n" +
+      'Minar: чтобы подтвердить номер телефона, нажмите кнопку «📱 Поделиться номером» ниже.',
+      { reply_markup: { keyboard: [[{ text: BTN_PHONE, request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
+    return true;
+  }
+  return false;
+}
+
 async function onMessage(m) {
   if (!m.chat || m.chat.type !== 'private' || !m.from) return;
+  if (await phoneMessage(m)) return;
   const state = await store.load();
   const p = person(m.from);
   remember(state, p);

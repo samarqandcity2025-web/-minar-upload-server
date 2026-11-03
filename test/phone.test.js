@@ -112,6 +112,23 @@ test('register: after 5 wrong codes the number is locked for a while', async () 
   assert.strictEqual(r.code, 429); assert.strictEqual(r.json.error, 'code-tries');
 });
 
+test('two steps: phone-check gives a one-hour proof, the registration carries it (no Gmail needed)', async () => {
+  const p = '+998 91 000 11 22';
+  let r = await call(account, { appKey: 'test-key', action: 'phone-check', phone: p, phoneCode: '12' });
+  assert.strictEqual(r.json.error, 'bad-code');
+  r = await call(account, { appKey: 'test-key', action: 'phone-check', phone: p, phoneCode: phone.codeFor(p) });
+  assert.ok(r.json.ok && r.json.proof);
+  const proof = r.json.proof;
+  assert.ok(phone.checkProof(p, proof).ok);
+  assert.ok(!phone.checkProof('998911112233', proof).ok, 'proof of another number');
+  assert.ok(!phone.checkProof(p, proof, Date.now() + 61 * 60 * 1000).ok, 'expired after an hour');
+  r = await call(account, { appKey: 'test-key', action: 'register', login: 'stepTwo', password: 'secret12',
+    profile: { firstName: 'Vali', lastName: 'Aliyev', phone: p }, phoneProof: proof });
+  assert.ok(r.json.ok, JSON.stringify(r.json));
+  r = await call(account, { appKey: 'test-key', action: 'phone-check', phone: p, phoneCode: phone.codeFor(p) });
+  assert.strictEqual(r.json.error, 'phone-exists');
+});
+
 test('phone-bot gives the bot name for the t.me link', async () => {
   const r = await call(account, { appKey: 'test-key', action: 'phone-bot' });
   assert.deepStrictEqual(r.json, { ok: true, bot: 'minar_test_bot' });

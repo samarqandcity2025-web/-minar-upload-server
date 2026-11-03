@@ -40,6 +40,15 @@ module.exports = async (req, res) => {
     res.status(bot ? 200 : 503).json(bot ? { ok: true, bot } : { ok: false, error: 'no-bot' });
     return;
   }
+  // Registration step 1: phone + bot code -> one-hour proof (no account is made yet).
+  if (b.action === 'phone-check') {
+    try {
+      const out = await accounts.checkPhone(b.phone, b.phoneCode);
+      if (!out.ok) await new Promise((r) => setTimeout(r, 400));
+      res.status(out.ok ? 200 : out.error === 'phone-exists' ? 409 : out.error === 'code-tries' ? 429 : 400).json(out);
+    } catch (e) { res.status(500).json({ ok: false, error: 'server' }); }
+    return;
+  }
 
   const login = typeof b.login === 'string' ? b.login.trim() : '';
   const password = typeof b.password === 'string' ? b.password : '';
@@ -48,7 +57,7 @@ module.exports = async (req, res) => {
 
   try {
     const out = b.action === 'import' ? await accounts.importVerifier(login, b.salt, b.verifier, b.consentAt, b.profile)
-      : b.action === 'register' ? await accounts.register(login, password, b.consentAt, b.profile, b.phoneCode)
+      : b.action === 'register' ? await accounts.register(login, password, b.consentAt, b.profile, b.phoneCode, b.phoneProof)
       : b.action === 'login' ? await accounts.login(login, password)
       : { ok: false, error: 'bad-action' };
     if (!out.ok && out.error !== 'invalid-credentials' && out.error !== 'no-account') await new Promise((r) => setTimeout(r, 400));

@@ -40,7 +40,6 @@ module.exports = async (req, res) => {
     '📂 Yangi fayl yuklandi\n' +
     '👤 Ism familiya: ' + ([p.firstName, p.lastName].filter(Boolean).join(' ') || '-') + '\n' +
     '📞 Telefon: ' + (p.phone || '-') + '\n' +
-    '📧 Gmail: ' + (p.email || '-') + '\n' +
     '🔑 Login: ' + (b.login || '-') + '\n' +
     '📄 Fayl: ' + b.name + '\n' +
     '🕒 Vaqt: ' + new Date(when.getTime() + 5 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' (Toshkent)';

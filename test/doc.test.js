@@ -126,7 +126,7 @@ test('doc: a Minar 2 offer is stored with its own key, columns and rows; the pag
   assert.strictEqual(r.code, 200, JSON.stringify(r.body));
   const p = await call(view, { query: { k: key(r.body.url) } });
   assert.strictEqual(p.code, 200);
-  assert.match(p.body, /MINAR 2/);
+  assert.match(p.body, /MINΛR</);
   // Only the verification card (user, 2 Nov 2026): authenticity, file, date, who — no table, no download.
   assert.match(p.body, /Haqiqiy hujjat/);
   assert.match(p.body, /MTT-624 от 02\.11\.2026\.pdf/);

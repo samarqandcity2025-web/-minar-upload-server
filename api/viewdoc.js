@@ -92,8 +92,8 @@ footer{margin-top:18px;text-align:center;font-size:12px;color:#a3a19b}`;
 function verifyPage(m) {
   const row = (label, value, cls) => `<div class="row"><dt>${label}</dt><dd${cls ? ` class="${cls}"` : ''}>${value}</dd></div>`;
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>MINAR 2 — ${esc(m.name)}</title><style>${VERIFY_STYLE}</style></head>
-<body><main class="card"><div class="top"><div class="mark">MINΛR 2</div>
+<meta name="robots" content="noindex"><title>MINAR — ${esc(m.name)}</title><style>${VERIFY_STYLE}</style></head>
+<body><main class="card"><div class="top"><div class="mark">MINΛR</div>
 <div class="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg></div>
 <h1>Haqiqiy hujjat</h1><p class="sub">Подлинный документ</p></div>
 <dl>${row('Fayl · Файл', esc(m.name))}${row('Sana · Дата', esc(when(m.exportedAt)))}${m.who ? row('Saqlagan · Сохранил', esc(m.who)) : ''}${m.size ? row('Hajmi · Размер', size(m.size)) : ''}${m.sha256 ? row('SHA-256', esc(String(m.sha256).slice(0, 16)) + '…', 'hash') : ''}</dl>

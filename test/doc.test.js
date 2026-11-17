@@ -185,15 +185,22 @@ test('doc: Minar 2 descriptions via the Minar 2 server (link key); strict mode r
 });
 
 // Minar 2 automatic update (user, 17 Nov 2026): latest.yml handed out fresh, the installer redirected to Blob, nothing else.
-test('m2update: latest.yml is passed on, the installer is a redirect, unknown names are 404', async () => {
+test('m2update: latest.yml = the newest latest-<v>.yml, the installer is a redirect, old versions pruned with the release key', async () => {
   const m2u = require('../api/m2update');
-  await fakeBlob.put('minar2-update/latest.yml', 'version: 0.5.19\npath: minar2-0.5.19.exe\n', {});
-  await fakeBlob.put('minar2-update/minar2-0.5.19.exe', 'EXE', {});
-  const run = async (f) => { const r = { code: 0, headers: {}, body: '' }; await m2u({ query: { f } }, { setHeader(k, v) { r.headers[k] = v; }, status(c) { r.code = c; return this; }, end(b) { if (b) r.body = String(b); return this; }, writeHead(c, h) { r.code = c; Object.assign(r.headers, h); return this; } }); return r; };
-  const y = await run('latest.yml');
-  assert.strictEqual(y.code, 200); assert.match(y.body, /version: 0\.5\.19/); assert.strictEqual(y.headers['Cache-Control'], 'no-store');
-  const e = await run('minar2-0.5.19.exe');
+  for (const v of ['0.5.9', '0.5.18', '0.5.19']) {
+    await fakeBlob.put('minar2-update/latest-' + v + '.yml', 'version: ' + v + '\npath: minar2-' + v + '.exe\n', {});
+    await fakeBlob.put('minar2-update/minar2-' + v + '.exe', 'EXE ' + v, {});
+  }
+  const run = async (req) => { const r = { code: 0, headers: {}, body: '' }; await m2u(req, { setHeader(k, v) { r.headers[k] = v; }, status(c) { r.code = c; return this; }, json(j) { r.body = j; return this; }, end(b) { if (b) r.body = String(b); return this; }, writeHead(c, h) { r.code = c; Object.assign(r.headers, h); return this; } }); return r; };
+  const get = (f) => run({ method: 'GET', query: { f } });
+  const y = await get('latest.yml');
+  assert.strictEqual(y.code, 200); assert.match(y.body, /version: 0\.5\.19/, '0.5.19 is newer than 0.5.9'); assert.strictEqual(y.headers['Cache-Control'], 'no-store');
+  const e = await get('minar2-0.5.19.exe');
   assert.strictEqual(e.code, 302); assert.strictEqual(e.headers.Location, 'https://blob.test/minar2-update/minar2-0.5.19.exe');
-  assert.strictEqual((await run('../secret')).code, 404);
-  assert.strictEqual((await run('nothing.exe')).code, 404);
+  assert.strictEqual((await get('../secret')).code, 404);
+  assert.strictEqual((await get('nothing.exe')).code, 404);
+  process.env.MINAR2_RELEASE_KEY = 'release-key-1234567890';
+  assert.strictEqual((await run({ method: 'POST', body: { release: 'wrong-key-12345678901', keep: 2 } })).code, 401);
+  const p = await run({ method: 'POST', body: { release: 'release-key-1234567890', keep: 2 } });
+  assert.strictEqual(p.code, 200); assert.deepStrictEqual(p.body.versions, ['0.5.19', '0.5.18']); assert.strictEqual(p.body.removed, 2, '0.5.9 yml + exe');
 });

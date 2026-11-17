@@ -168,3 +168,18 @@ test('minar2: backup copies are stored in Blob and listed; a wrong key or name i
   assert.ok(l.backups.some((b) => b.name === 'minar2-2026-11-17-210000.json.gz'));
   assert.strictEqual(fs.readdirSync(mock).length, tgBefore, 'nothing sent to Telegram');
 });
+
+// Through the Minar 2 server (user, 17 Nov 2026: «the keys are inside the EXE»): MINAR2_LINK_KEY is accepted without the app key;
+// with MINAR2_DOC_STRICT=1 the old direct way with the key from the EXE is refused.
+test('doc: Minar 2 descriptions via the Minar 2 server (link key); strict mode refuses the key from the EXE', async () => {
+  process.env.MINAR2_DOC_KEY = 'm2-key'; process.env.MINAR2_LINK_KEY = 'link-key-test';
+  const sig2 = (x) => crypto.createHmac('sha256', 'm2-key').update('minar-doc:' + x).digest('base64url').slice(0, 16);
+  const t1 = token(), t2 = token();
+  const viaServer = await call(doc, { method: 'POST', body: { app: 'minar-2', linkKey: 'link-key-test', login: 'madina', profile: { firstName: 'Madina' }, token: t1, sig: sig2(t1), kind: 'pdf', name: 'MTT-9.pdf', size: 5, sha256: 'a'.repeat(64) } });
+  assert.strictEqual(viaServer.code, 200, JSON.stringify(viaServer.body));
+  assert.strictEqual((await call(doc, { method: 'POST', body: { app: 'minar-2', linkKey: 'wrong-key-tes', token: t2, sig: sig2(t2), kind: 'pdf', name: 'x.pdf' } })).code, 401);
+  process.env.MINAR2_DOC_STRICT = '1';
+  try {
+    assert.strictEqual((await call(doc, { method: 'POST', body: { appKey: 'm2-key', app: 'minar-2', token: t2, sig: sig2(t2), kind: 'pdf', name: 'x.pdf', size: 1, sha256: 'b'.repeat(64) } })).code, 401, 'key from the EXE refused');
+  } finally { delete process.env.MINAR2_DOC_STRICT; }
+});

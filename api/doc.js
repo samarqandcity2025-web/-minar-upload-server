@@ -36,7 +36,12 @@ module.exports = async (req, res) => {
   if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = {}; } }
   if (!b || typeof b !== 'object') b = {};
   const app = docs.appOf(b.app), APP_KEY = docs.keyOf(app);
-  if (!APP_KEY || b.appKey !== APP_KEY) { res.status(401).json({ ok: false, error: 'unauthorized' }); return; }
+  // Minar 2 (user, 17 Nov 2026: «the keys are inside the EXE»): its descriptions come from the Minar 2 server, which checked the
+  // signed-in user, with MINAR2_LINK_KEY (only on the servers). The old direct way with the app's own key is still taken from
+  // programs not yet updated, unless MINAR2_DOC_STRICT=1 (switch it on once every computer runs 0.5.19 or newer).
+  const LINK = process.env.MINAR2_LINK_KEY || '';
+  const viaServer = app === 'minar-2' && !!LINK && typeof b.linkKey === 'string' && b.linkKey.length === LINK.length && crypto.timingSafeEqual(Buffer.from(b.linkKey), Buffer.from(LINK));
+  if (!viaServer && (!APP_KEY || b.appKey !== APP_KEY || (app === 'minar-2' && process.env.MINAR2_DOC_STRICT === '1'))) { res.status(401).json({ ok: false, error: 'unauthorized' }); return; }
   if (!docs.valid(b.token, b.sig, app)) { res.status(400).json({ ok: false, error: 'bad-token' }); return; }
   if (!KINDS[b.kind]) { res.status(400).json({ ok: false, error: 'bad-kind' }); return; }
   if (!store.configured()) { res.status(500).json({ ok: false, error: 'telegram-not-configured' }); return; }

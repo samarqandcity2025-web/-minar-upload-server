@@ -183,3 +183,17 @@ test('doc: Minar 2 descriptions via the Minar 2 server (link key); strict mode r
     assert.strictEqual((await call(doc, { method: 'POST', body: { appKey: 'm2-key', app: 'minar-2', token: t2, sig: sig2(t2), kind: 'pdf', name: 'x.pdf', size: 1, sha256: 'b'.repeat(64) } })).code, 401, 'key from the EXE refused');
   } finally { delete process.env.MINAR2_DOC_STRICT; }
 });
+
+// Minar 2 automatic update (user, 17 Nov 2026): latest.yml handed out fresh, the installer redirected to Blob, nothing else.
+test('m2update: latest.yml is passed on, the installer is a redirect, unknown names are 404', async () => {
+  const m2u = require('../api/m2update');
+  await fakeBlob.put('minar2-update/latest.yml', 'version: 0.5.19\npath: minar2-0.5.19.exe\n', {});
+  await fakeBlob.put('minar2-update/minar2-0.5.19.exe', 'EXE', {});
+  const run = async (f) => { const r = { code: 0, headers: {}, body: '' }; await m2u({ query: { f } }, { setHeader(k, v) { r.headers[k] = v; }, status(c) { r.code = c; return this; }, end(b) { if (b) r.body = String(b); return this; }, writeHead(c, h) { r.code = c; Object.assign(r.headers, h); return this; } }); return r; };
+  const y = await run('latest.yml');
+  assert.strictEqual(y.code, 200); assert.match(y.body, /version: 0\.5\.19/); assert.strictEqual(y.headers['Cache-Control'], 'no-store');
+  const e = await run('minar2-0.5.19.exe');
+  assert.strictEqual(e.code, 302); assert.strictEqual(e.headers.Location, 'https://blob.test/minar2-update/minar2-0.5.19.exe');
+  assert.strictEqual((await run('../secret')).code, 404);
+  assert.strictEqual((await run('nothing.exe')).code, 404);
+});

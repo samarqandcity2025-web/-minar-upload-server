@@ -23,6 +23,13 @@ module.exports = async (req, res) => {
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         let p = {};
         try { p = clientPayload ? JSON.parse(clientPayload) : {}; } catch {}
+        // Minar 2 update files (user, 17 Nov 2026: automatic update): only with the release key, only under minar2-update/, fixed names.
+        const REL = process.env.MINAR2_RELEASE_KEY || '';
+        if (p.release !== undefined) {
+          const ok = REL.length >= 16 && typeof p.release === 'string' && p.release.length === REL.length && require('crypto').timingSafeEqual(Buffer.from(p.release), Buffer.from(REL));
+          if (!ok || !/^minar2-update\/[A-Za-z0-9._-]+$/.test(pathname)) throw new Error('unauthorized');
+          return { allowedContentTypes: ['application/octet-stream', 'text/yaml'], maximumSizeInBytes: 400 * 1024 * 1024, addRandomSuffix: false, cacheControlMaxAge: 60 };
+        }
         if (!APP_KEY || p.appKey !== APP_KEY) throw new Error('unauthorized');
         return {
           allowedContentTypes: [

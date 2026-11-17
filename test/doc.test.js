@@ -153,3 +153,18 @@ test('doc: a Minar 2 offer is stored with its own key, columns and rows; the pag
   assert.strictEqual(docs.valid(t, sig2(t)), true);
   assert.strictEqual(docs.valid(t, sig(t), 'minar-2'), false, 'a Minar 1 signature is not a Minar 2 one');
 });
+
+// Minar 2 nightly copy (user, 17 Nov 2026): only with MINAR2_LINK_KEY, stored in Blob (not Telegram), listed by name.
+test('minar2: backup copies are stored in Blob and listed; a wrong key or name is refused', async () => {
+  process.env.MINAR2_LINK_KEY = 'link-key-test';
+  const api = require('../api/minar2');
+  const run = async (body) => { let code = 0, json = null; await api({ method: 'POST', body }, { setHeader() {}, status(c) { code = c; return this; }, json(j) { json = j; return this; } }); return { code, ...json }; };
+  const tgBefore = fs.readdirSync(mock).length;
+  assert.strictEqual((await run({ key: 'wrong', action: 'backup', name: 'minar2-2026-11-17-210000.json.gz', data: 'AA==' })).code, 401);
+  assert.strictEqual((await run({ key: 'link-key-test', action: 'backup', name: '../evil.json', data: 'AA==' })).code, 400);
+  const ok = await run({ key: 'link-key-test', action: 'backup', name: 'minar2-2026-11-17-210000.json.gz', data: Buffer.from('copy').toString('base64') });
+  assert.strictEqual(ok.code, 200);
+  const l = await run({ key: 'link-key-test', action: 'backups' });
+  assert.ok(l.backups.some((b) => b.name === 'minar2-2026-11-17-210000.json.gz'));
+  assert.strictEqual(fs.readdirSync(mock).length, tgBefore, 'nothing sent to Telegram');
+});

@@ -29,6 +29,7 @@ module.exports = async (req, res) => {
   try {
     // the data: from the temporary blob (production), or inline (small test / local server)
     let data = b.payload;
+    if (b.blobUrl && !require('../lib/blob-url').ownUpload(b.blobUrl, ['minar-3d/'])) { res.status(400).json({ ok: false, error: 'bad-url' }); return; }
     if (!data && b.blobUrl) {
       const r = await fetch(b.blobUrl);
       if (!r.ok) { res.status(502).json({ ok: false, error: 'blob-fetch-failed-' + r.status }); return; }

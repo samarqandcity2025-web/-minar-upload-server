@@ -43,6 +43,8 @@ module.exports = async (req, res) => {
   const viaServer = app === 'minar-2' && !!LINK && typeof b.linkKey === 'string' && b.linkKey.length === LINK.length && crypto.timingSafeEqual(Buffer.from(b.linkKey), Buffer.from(LINK));
   if (!viaServer && (!APP_KEY || b.appKey !== APP_KEY || (app === 'minar-2' && process.env.MINAR2_DOC_STRICT === '1'))) { res.status(401).json({ ok: false, error: 'unauthorized' }); return; }
   if (!docs.valid(b.token, b.sig, app)) { res.status(400).json({ ok: false, error: 'bad-token' }); return; }
+  // A file URL only from the programs' own upload area (security review, 20 Nov 2026: it was fetched and deleted as given).
+  if (b.blobUrl && !require('../lib/blob-url').ownUpload(b.blobUrl)) { res.status(400).json({ ok: false, error: 'bad-url' }); return; }
   if (!KINDS[b.kind]) { res.status(400).json({ ok: false, error: 'bad-kind' }); return; }
   if (!store.configured()) { res.status(500).json({ ok: false, error: 'telegram-not-configured' }); return; }
   const origin = process.env.MINAR_PUBLIC_ORIGIN || ((req.headers['x-forwarded-proto'] || 'https') + '://' + req.headers.host);

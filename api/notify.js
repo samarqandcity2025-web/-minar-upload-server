@@ -27,6 +27,8 @@ module.exports = async (req, res) => {
 
   if (!APP_KEY || b.appKey !== APP_KEY) { res.status(401).json({ ok: false, error: 'unauthorized' }); return; }
   if (!b.blobUrl || !b.name) { res.status(400).json({ ok: false, error: 'bad-payload' }); return; }
+  // Only a file the program uploaded under minar/ (security review, 20 Nov 2026: no fetch of any URL, no deleting other files).
+  if (!require('../lib/blob-url').ownUpload(b.blobUrl, ['minar/'])) { res.status(400).json({ ok: false, error: 'bad-url' }); return; }
   // Fixed TELEGRAM_CHAT_ID ids + people the admin added through the bot menu.
   const CHATS = await allChats();
   if (!BOT || !CHATS.length) { res.status(500).json({ ok: false, error: 'telegram-not-configured' }); return; }

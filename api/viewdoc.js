@@ -52,7 +52,9 @@ ${m.section ? `<tr><td class="sec" colspan="4">${esc(m.section)}</td></tr>` : ''
   } else if (m.kind === 'pdf' && hasFile) {
     body = `<div class="card" id="view"><div class="msg">Hujjat yuklanmoqda… · Документ загружается…</div></div>`;
   }
-  const script = `const PARTS=${JSON.stringify(parts)},NAME=${JSON.stringify(m.name)},KIND=${JSON.stringify(m.kind)},SHA=${JSON.stringify(m.sha256)};
+  // Values inside <script> never contain «<» (a name like «</script>» cannot end it; security review, 20 Nov 2026).
+  const js = (v) => JSON.stringify(v).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+  const script = `const PARTS=${js(parts)},NAME=${js(m.name)},KIND=${js(m.kind)},SHA=${js(m.sha256)};
 let file=null;const $=id=>document.getElementById(id);
 async function load(){if(file)return file;const bufs=await Promise.all(PARTS.map(u=>fetch(u).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.arrayBuffer();})));
 const out=new Uint8Array(bufs.reduce((s,b)=>s+b.byteLength,0));let at=0;for(const b of bufs){out.set(new Uint8Array(b),at);at+=b.byteLength;}file=out;check(out);return out;}

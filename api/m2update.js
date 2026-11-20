@@ -11,9 +11,13 @@ const PREFIX = 'minar2-update/';
 const verOf = (pathname) => (/(\d+)\.(\d+)\.(\d+)/.exec(pathname) || []).slice(1).map(Number);
 const newer = (a, b) => { for (let i = 0; i < 3; i++) if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) - (b[i] || 0); return 0; };
 
-async function all() {
+// The list is kept for a minute in this instance (review, 20 Nov 2026: every request — anybody's — cost one Blob list operation).
+let cache = null;
+async function all(fresh) {
+  if (!fresh && cache && Date.now() - cache.at < 60000) return cache.blobs;
   const { list } = require('@vercel/blob');
   const { blobs } = await list({ prefix: PREFIX, limit: 1000 });
+  cache = { at: Date.now(), blobs };
   return blobs;
 }
 
@@ -25,11 +29,12 @@ module.exports = async (req, res) => {
       if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = {}; } }
       const REL = process.env.MINAR2_RELEASE_KEY || '', key = String((b && b.release) || '');
       if (REL.length < 16 || key.length !== REL.length || !crypto.timingSafeEqual(Buffer.from(key), Buffer.from(REL))) { res.status(401).end('unauthorized'); return; }
-      const keep = Math.max(2, Number(b.keep) || 3), blobs = await all();
+      const keep = Math.max(2, Number(b.keep) || 3), blobs = await all(true);
       const versions = [...new Set(blobs.map((x) => verOf(x.pathname).join('.')).filter((v) => v.split('.').length === 3))]
         .map((v) => v.split('.').map(Number)).sort((x, y) => newer(y, x)).map((v) => v.join('.'));
       const drop = blobs.filter((x) => { const v = verOf(x.pathname).join('.'); return v && versions.indexOf(v) >= keep; });
       if (drop.length) await require('@vercel/blob').del(drop.map((x) => x.url));
+      cache = null;
       res.status(200).json({ ok: true, versions: versions.slice(0, keep), removed: drop.length });
       return;
     }

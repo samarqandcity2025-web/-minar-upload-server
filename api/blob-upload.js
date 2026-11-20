@@ -31,7 +31,12 @@ module.exports = async (req, res) => {
           return { allowedContentTypes: ['application/octet-stream', 'text/yaml'], maximumSizeInBytes: 400 * 1024 * 1024, addRandomSuffix: false, cacheControlMaxAge: 60 };
         }
         if (!APP_KEY || p.appKey !== APP_KEY) throw new Error('unauthorized');
+        // The app key ships inside the programs, so it may only write where the programs write (security review, 20 Nov 2026:
+        // any pathname let a key holder plant minar-bot/state-*, minar-accounts/*, minar2-backup/*, minar-docs/*, minar2-update/*):
+        // Minar's drawings minar/<login>/<time>-<name> and the 3D links minar-3d/<n>.json — always with a random suffix.
+        if (!/^minar\/[^/]{1,200}\/[^/]{1,300}$/.test(pathname) && !/^minar-3d\/\d{1,16}\.json$/.test(pathname)) throw new Error('unauthorized');
         return {
+          addRandomSuffix: true,
           allowedContentTypes: [
             'application/octet-stream', 'application/pdf',
             'image/vnd.dwg', 'application/acad', 'application/dxf', 'text/plain', 'application/json',
